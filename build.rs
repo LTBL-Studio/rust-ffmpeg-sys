@@ -139,7 +139,7 @@ fn version() -> String {
         .parse()
         .unwrap();
 
-    format!("{}.{}", major, minor)
+    format!("{major}.{minor}")
 }
 
 fn output() -> PathBuf {
@@ -180,7 +180,7 @@ fn fetch() -> io::Result<()> {
     if status.success() {
         Ok(())
     } else {
-        Err(io::Error::new(io::ErrorKind::Other, "fetch failed"))
+        Err(io::Error::other("fetch failed"))
     }
 }
 
@@ -274,8 +274,7 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
             .output()
             .is_err()
         {
-            return Err(io::Error::new(
-                io::ErrorKind::Other,
+            return Err(io::Error::other(
                 "Failed to find 'sh.exe', which is required for building FFmpeg",
             ));
         }
@@ -305,10 +304,10 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
         let cc = cc::Build::new();
 
         // Apple-clang needs this, -arch is not enough.
-        let target_flag = format!("--target={}", target);
+        let target_flag = format!("--target={target}");
         if cc.is_flag_supported(&target_flag).unwrap_or(false) {
-            configure.arg(format!("--extra-cflags={}", target_flag));
-            configure.arg(format!("--extra-ldflags={}", target_flag));
+            configure.arg(format!("--extra-cflags={target_flag}"));
+            configure.arg(format!("--extra-ldflags={target_flag}"));
         }
 
         configure.arg(format!(
@@ -326,7 +325,7 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
             if let Some(suffix_pos) = compiler.rfind('-') {
                 let prefix = compiler[0..suffix_pos].trim_end_matches("-wr"); // "wr-c++" compiler
 
-                configure.arg(format!("--cross-prefix={}-", prefix));
+                configure.arg(format!("--cross-prefix={prefix}-"));
             }
         }
     } else {
@@ -351,7 +350,7 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
     // for macos the easiest way is to run xcrun, for other platform we support $SYSROOT var
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("ios") {
         let sysroot = sysroot.expect("The sysroot is required for ios cross compilation, make sure to have available xcode or provide the $SYSROOT env var");
-        configure.arg(format!("--sysroot={}", sysroot));
+        configure.arg(format!("--sysroot={sysroot}"));
 
         let cc = Command::new("xcrun")
             .args(["--sdk", "iphoneos", "-f", "clang"])
@@ -370,7 +369,7 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
     if env::var("CARGO_CFG_TARGET_OS").as_deref() == Ok("android") {
         // cargo ndk auto populates rust env variables for android cross compilation
         // so we can just leverage the same compiler path and cflags for ffmpeg build
-        let android_cc_raw_path = env::var(format!("CC_{}", target)).expect("Missing CC path for android. Make sure to use cargo-ndk for adnrdoic cross compilation");
+        let android_cc_raw_path = env::var(format!("CC_{target}")).expect("Missing CC path for android. Make sure to use cargo-ndk for adnrdoic cross compilation");
         let android_cc_path = Path::new(&android_cc_raw_path);
         if !android_cc_path.exists() {
             panic!("Android CC path does not exists: {}", android_cc_raw_path);
@@ -389,7 +388,7 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
             ));
         }
 
-        if let Ok(android_target_flags) = env::var(format!("CFLAGS_{}", target)).as_deref() {
+        if let Ok(android_target_flags) = env::var(format!("CFLAGS_{target}")).as_deref() {
             configure.arg(format!("--extra-cflags={android_target_flags}"));
             configure.arg(format!("--extra-ldflags={android_target_flags}"));
         }
@@ -601,6 +600,8 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
         configure.arg("--enable-cuvid");
         configure.arg("--enable-nvenc");
         configure.arg("--enable-cuda-llvm");
+        configure.arg("--enable-nvdec");
+        configure.arg("--enable-ffnvcodec");
 
         let cuda_path = env::var("CUDA_PATH").unwrap_or(if target_os == "linux" {
             "/usr/local/cuda".to_string()
@@ -613,7 +614,7 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
         // Additional configuration may be needed for CUDA toolkit path
         // This could be provided as an environment variable
         if let Ok(cuda_path) = env::var("CUDA_PATH") {
-            configure.arg(format!("--cuda-path={}", cuda_path));
+            configure.arg(format!("--cuda-path={cuda_path}"));
         }
     }
 
@@ -665,6 +666,16 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
     // time on platforms like mac which spawns thousands of nullabilty complieance warnings
     configure.arg("--extra-cflags=-w");
 
+    let command_line = format!(
+        "{:?} {:?}",
+        configure.get_program(),
+        configure
+            .get_args()
+            .collect::<Vec<_>>()
+            .join(std::ffi::OsStr::new(" "))
+    );
+    println!("{command_line}");
+
     // run ./configure
     let output = configure
         .output()
@@ -679,13 +690,10 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
             String::from_utf8_lossy(&output.stderr)
         );
 
-        return Err(io::Error::new(
-            io::ErrorKind::Other,
-            format!(
-                "configure failed {}",
-                String::from_utf8_lossy(&output.stderr)
-            ),
-        ));
+        return Err(io::Error::other(format!(
+            "configure failed {}",
+            String::from_utf8_lossy(&output.stderr)
+        )));
     }
 
     // run make
@@ -696,7 +704,7 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
         .status()?
         .success()
     {
-        return Err(io::Error::new(io::ErrorKind::Other, "make failed"));
+        return Err(io::Error::other("make failed"));
     }
 
     // run make install
@@ -706,7 +714,7 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
         .status()?
         .success()
     {
-        return Err(io::Error::new(io::ErrorKind::Other, "make install failed"));
+        return Err(io::Error::other("make install failed"));
     }
 
     Ok(())
@@ -745,7 +753,7 @@ fn check_features(
             }
         }
 
-        let include = format!("#include <{}>", header);
+        let include = format!("#include <{header}>");
         if !includes_code.contains(&include) {
             includes_code.push_str(&include);
             includes_code.push('\n');
@@ -761,15 +769,13 @@ fn check_features(
             #define {var}_is_defined 1
             #endif
             #endif
-        "#,
-            var = var
+        "#
         );
 
         let _ = write!(
             main_code,
             r#"printf("[{var}]%d%d\n", {var}, {var}_is_defined);
-            "#,
-            var = var
+            "#
         );
     }
 
@@ -805,9 +811,7 @@ fn check_features(
                 {main_code}
                 return 0;
             }}
-           "#,
-        includes_code = includes_code,
-        main_code = main_code
+           "#
     )
     .expect("Write failed");
 
@@ -859,9 +863,9 @@ fn check_features(
         // Here so the features are listed for rust-ffmpeg at build time. Does
         // NOT represent activated features, just features that exist (hence the
         // lack of "=true" at the end)
-        println!(r#"cargo:{}="#, var);
+        println!(r#"cargo:{var}="#);
 
-        let var_str = format!("[{var}]", var = var);
+        let var_str = format!("[{var}]");
         let pos = var_str.len()
             + stdout
                 .find(&var_str)
@@ -887,12 +891,8 @@ fn check_features(
     {
         for version_major in begin_version_major..end_version_major {
             for version_minor in begin_version_minor..end_version_minor {
-                let search_str = format!(
-                    "[{lib}_version_greater_than_{version_major}_{version_minor}]",
-                    version_major = version_major,
-                    version_minor = version_minor,
-                    lib = lib
-                );
+                let search_str =
+                    format!("[{lib}_version_greater_than_{version_major}_{version_minor}]");
                 let pos = stdout
                     .find(&search_str)
                     .expect("Variable not found in output")
@@ -940,10 +940,10 @@ fn check_features(
             .expect("Variable not found in output")
             + search_str.len();
         if &stdout[pos..pos + 1] == "1" {
-            println!(r#"cargo:rustc-cfg=feature="{}""#, ffmpeg_version_flag);
-            println!(r#"cargo:{}=true"#, ffmpeg_version_flag);
+            println!(r#"cargo:rustc-cfg=feature="{ffmpeg_version_flag}""#);
+            println!(r#"cargo:{ffmpeg_version_flag}=true"#);
         } else {
-            println!(r#"cargo:{}="#, ffmpeg_version_flag);
+            println!(r#"cargo:{ffmpeg_version_flag}="#);
         }
     }
 }
@@ -955,7 +955,7 @@ fn search_include(include_paths: &[PathBuf], header: &str) -> String {
             return include.as_path().to_str().unwrap().to_string();
         }
     }
-    format!("/usr/include/{}", header)
+    format!("/usr/include/{header}")
 }
 
 fn maybe_search_include(include_paths: &[PathBuf], header: &str) -> Option<String> {
@@ -1028,7 +1028,7 @@ fn main() {
                 .iter()
                 .filter(|flag| flag.starts_with("-l"))
                 .map(|lib| &lib[2..])
-                .for_each(|lib| println!("cargo:rustc-link-lib={}", lib));
+                .for_each(|lib| println!("cargo:rustc-link-lib={lib}"));
 
             extra_linker_args
                 .iter()
@@ -1121,7 +1121,7 @@ fn main() {
         }
 
         for (lib_name, env_variable_name) in libs.iter() {
-            if env::var(format!("CARGO_FEATURE_{}", env_variable_name)).is_ok() {
+            if env::var(format!("CARGO_FEATURE_{env_variable_name}")).is_ok() {
                 pkg_config::Config::new()
                     .statik(statik)
                     .probe(lib_name)
@@ -1161,7 +1161,7 @@ fn main() {
             "VideoToolbox",
         ];
         for f in frameworks {
-            println!("cargo:rustc-link-lib=framework={}", f);
+            println!("cargo:rustc-link-lib=framework={f}");
         }
     }
 
@@ -1574,7 +1574,7 @@ fn main() {
         .parse_callbacks(Box::new(Callbacks));
 
     if let Some(sysroot) = sysroot.as_deref() {
-        builder = builder.clang_arg(format!("--sysroot={}", sysroot));
+        builder = builder.clang_arg(format!("--sysroot={sysroot}"));
     }
 
     // The input headers we would like to generate
