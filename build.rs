@@ -648,6 +648,20 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
     }
 
     enable!(configure, "BUILD_VULKAN", "vulkan");
+    if env::var("CARGO_FEATURE_BUILD_VULKAN").is_ok() {
+        match env::var_os("FFMPEG_VULKAN_SDK_INCLUDE") {
+            Some(path) => {
+                let mut flags = OsString::from("--extra-cflags=-I");
+                flags.push(path);
+                configure.arg(flags);
+            }
+            None => {
+                eprintln!("Warning: missing environment variable FFMPEG_VULKAN_SDK_INCLUDE, compilation may fail");
+                eprintln!("FFMPEG_VULKAN_SDK_INCLUDE should be a path to vulkan SDK (>= 1.3.277) include folder");
+                eprintln!("Please do not include space in path");
+            }
+        }
+    }
 
     // other external libraries
     enable!(configure, "BUILD_LIB_DRM", "libdrm");
