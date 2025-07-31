@@ -595,12 +595,10 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
     if env::var("CARGO_FEATURE_BUILD_NVIDIA").is_ok()
         && matches!(target_os.as_str(), "linux" | "windows")
     {
-        configure.arg("--enable-libnpp");
-        configure.arg("--enable-cuda-nvcc");
         configure.arg("--enable-cuvid");
         configure.arg("--enable-nvenc");
-        configure.arg("--enable-cuda-llvm");
         configure.arg("--enable-nvdec");
+        configure.arg("--enable-cuda-llvm");
         configure.arg("--enable-ffnvcodec");
 
         let cuda_path = env::var("CUDA_PATH").unwrap_or(if target_os == "linux" {
