@@ -1,8 +1,9 @@
 [package]
-name = "ffmpeg-sys-next"
-version = "7.1.2"
-build = "build.rs"
-links = "ffmpeg"
+
+name    = "ffmpeg-sys-next"
+version = "8.1.1"
+build   = "build.rs"
+links   = "ffmpeg"
 
 authors = ["meh. <meh@schizofreni.co>", "Zhiming Wang <i@zhimingwang.org>"]
 license = "WTFPL"
@@ -19,10 +20,11 @@ doctest = false
 libc = "0.2"
 
 [build-dependencies]
-num_cpus = "1.16"
-cc = "1.1"
+
+num_cpus   = "1.17"
+cc         = "1.2"
 pkg-config = "0.3"
-bindgen = { version = "0.70", default-features = false, features = ["runtime"] }
+bindgen    = { version = "0.72", default-features = false, features = ["runtime"] }
 
 [target.'cfg(target_env = "msvc")'.build-dependencies]
 vcpkg = "0.2"
