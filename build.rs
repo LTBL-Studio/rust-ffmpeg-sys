@@ -535,13 +535,19 @@ fn build(sysroot: Option<&str>) -> io::Result<()> {
     if env::var("CARGO_FEATURE_BUILD_LIB_DECKLINK").is_ok() {
         match env::var_os("FFMPEG_DECKLINK_SDK_INCLUDE") {
             Some(path) => {
-                let mut flags = OsString::from("--extra-cflags=-I");
-                flags.push(path);
-                configure.arg(flags);
+                let mut c_flags = OsString::from("--extra-cflags=-I");
+                c_flags.push(path.clone());
+                configure.arg(c_flags);
+
+                let mut cpp_flags = OsString::from("--extra-cxxflags=-I");
+                cpp_flags.push(path);
+                configure.arg(cpp_flags);
             }
             None => {
                 eprintln!("Warning: missing environment variable FFMPEG_DECKLINK_SDK_INCLUDE, compilation may fail");
-                eprintln!("FFMPEG_DECKLINK_SDK_INCLUDE should be a path to decklink SDK (v12.9) include folder");
+                eprintln!(
+                    "FFMPEG_DECKLINK_SDK_INCLUDE should be a path to decklink SDK include folder"
+                );
                 eprintln!("Please do not include space in path");
             }
         }
