@@ -1,9 +1,11 @@
 [package]
 
 name    = "ffmpeg-sys-next"
-version = "8.1.2"
+
+version = "9.1.0"
 build   = "build.rs"
 links   = "ffmpeg"
+edition = "2024"
 
 authors = ["meh. <meh@schizofreni.co>", "Zhiming Wang <i@zhimingwang.org>"]
 license = "WTFPL"
@@ -22,9 +24,9 @@ libc = "0.2"
 [build-dependencies]
 
 num_cpus   = "1.17"
-cc         = "1.2"
+cc         = "1.10"
 pkg-config = "0.3"
-bindgen    = { version = "0.72", default-features = false, features = ["runtime"] }
+bindgen    = { version = "0.73", default-features = false, features = ["runtime"] }
 
 [target.'cfg(target_env = "msvc")'.build-dependencies]
 vcpkg = "0.2"
@@ -51,7 +53,9 @@ build-license-nonfree = ["build"]
 build-license-version3 = ["build"]
 
 # misc
-build-drm = ["build"]
+
+build-portable = ["build"]
+build-drm   = ["build"]
 build-nvenc = ["build"]
 build-pic = ["build"]
 build-zlib = ["build"]
